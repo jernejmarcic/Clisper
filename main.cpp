@@ -1,5 +1,6 @@
 #include <iostream>
 #include <magic.h>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <exiv2/exiv2.hpp>
@@ -35,6 +36,20 @@ bool isImageMime(const std::string& mime) { // broad check for any image/*
     return mime.rfind("image/", 0) == 0;
 }
 
+struct ImageMetadata {
+    std::optional<std::string> description;
+    std::optional<std::string> make;
+    std::optional<std::string> model;
+    std::optional<std::string> resolutionWidth;
+    std::optional<std::string> resolutionHeight;
+    std::optional<std::string> dateTaken;
+    std::optional<std::string> gpsLatRef;
+    std::optional<std::string> gpsLat;
+    std::optional<std::string> gpsLonRef;
+    std::optional<std::string> gpsLon;
+    std::optional<std::string> gpsAlt;
+};
+
 
 std::string getMIME(const std::string &rawBuff) {
     magic_t magicCookie = magic_open(MAGIC_MIME_TYPE | MAGIC_ERROR); // init libmagic for MIME output with error reporting
@@ -51,14 +66,15 @@ std::string getMIME(const std::string &rawBuff) {
     return mime;
 }
 
-std::string extractImageMetadata(const std::string& mime, const std::string& rawBuff) {
+ImageMetadata extractImageMetadata(const std::string& mime, const std::string& rawBuff) {
+    ImageMetadata meta;
     if (!isImageMime(mime)) {
-        return "";
+        return meta;
     }
     Exiv2::Image::UniquePtr image = Exiv2::ImageFactory::open(reinterpret_cast<const Exiv2::byte*>(rawBuff.data()),
                                                              rawBuff.size()); // open from in-memory buffer
     if (!image) {
-        return "";
+        return meta;
     }
     image->readMetadata(); // Loads image var into readMetadata
     Exiv2::ExifData& exifData = image->exifData();
@@ -69,16 +85,14 @@ std::string extractImageMetadata(const std::string& mime, const std::string& raw
         return it->value().toString();
     };
 
-    std::ostringstream out;
-
     std::string description = tagValue("Exif.Image.ImageDescription");
-    if (!description.empty()) out << "Description: " << description << "\n";
+    if (!description.empty()) meta.description = description;
 
     std::string make = tagValue("Exif.Image.Make");
-    if (!make.empty()) out << "Make: " << make << "\n";
+    if (!make.empty()) meta.make = make;
 
     std::string model = tagValue("Exif.Image.Model");
-    if (!model.empty()) out << "Model: " << model << "\n";
+    if (!model.empty()) meta.model = model;
 
     // Resolution: prefer PixelX/YDimension if present, fallback to ImageWidth/ImageLength
     std::string width = tagValue("Exif.Photo.PixelXDimension");
@@ -87,24 +101,25 @@ std::string extractImageMetadata(const std::string& mime, const std::string& raw
         width = tagValue("Exif.Image.ImageWidth");
         height = tagValue("Exif.Image.ImageLength");
     }
-    if (!width.empty() && !height.empty()) out << "Resolution: " << width << "x" << height << "\n";
+    if (!width.empty()) meta.resolutionWidth = width;
+    if (!height.empty()) meta.resolutionHeight = height;
 
     std::string dateTaken = tagValue("Exif.Photo.DateTimeOriginal");
     if (dateTaken.empty()) dateTaken = tagValue("Exif.Image.DateTime");
-    if (!dateTaken.empty()) out << "DateTaken: " << dateTaken << "\n";
+    if (!dateTaken.empty()) meta.dateTaken = dateTaken;
 
     std::string latRef = tagValue("Exif.GPSInfo.GPSLatitudeRef");
     std::string lat = tagValue("Exif.GPSInfo.GPSLatitude");
     std::string lonRef = tagValue("Exif.GPSInfo.GPSLongitudeRef");
     std::string lon = tagValue("Exif.GPSInfo.GPSLongitude");
     std::string alt = tagValue("Exif.GPSInfo.GPSAltitude");
-    if (!lat.empty() && !lon.empty()) {
-        out << "GPS: " << latRef << " " << lat << ", " << lonRef << " " << lon;
-        if (!alt.empty()) out << ", Altitude: " << alt;
-        out << "\n";
-    }
+    if (!latRef.empty()) meta.gpsLatRef = latRef;
+    if (!lat.empty()) meta.gpsLat = lat;
+    if (!lonRef.empty()) meta.gpsLonRef = lonRef;
+    if (!lon.empty()) meta.gpsLon = lon;
+    if (!alt.empty()) meta.gpsAlt = alt;
 
-    return out.str();
+    return meta;
 }
 
 int main() {
@@ -117,8 +132,24 @@ int main() {
     std::string mimeType = getMIME(rawBuff); // detect MIME type of captured input
     if (!isImageMime(mimeType)) { // broad check for any image/*
         std::cout << rawBuff << std::endl;    // stream captured input to stdout
-    } else if(isImageMime(mimeType)) { // broad check for any image/* will po
-        std::cout << extractImageMetadata(mimeType, rawBuff) << std::endl;
+    } else if (isImageMime(mimeType)) { // broad check for any image/*
+        ImageMetadata meta = extractImageMetadata(mimeType, rawBuff);
+        if (meta.description) std::cout << "Description: " << *meta.description << "\n";
+        if (meta.make) std::cout << "Make: " << *meta.make << "\n";
+        if (meta.model) std::cout << "Model: " << *meta.model << "\n";
+        if (meta.resolutionWidth && meta.resolutionHeight) {
+            std::cout << "Resolution: " << *meta.resolutionWidth << "x" << *meta.resolutionHeight << "\n";
+        }
+        if (meta.dateTaken) std::cout << "DateTaken: " << *meta.dateTaken << "\n";
+        if (meta.gpsLat && meta.gpsLon) {
+            std::cout << "GPS: ";
+            if (meta.gpsLatRef) std::cout << *meta.gpsLatRef << " ";
+            std::cout << *meta.gpsLat << ", ";
+            if (meta.gpsLonRef) std::cout << *meta.gpsLonRef << " ";
+            std::cout << *meta.gpsLon;
+            if (meta.gpsAlt) std::cout << ", Altitude: " << *meta.gpsAlt;
+            std::cout << "\n";
+        }
     }
     std::cout << "MIME type: " << mimeType << std::endl;
     std::cout << "Length: " << rawBuff.size() << std::endl;
