@@ -3,6 +3,8 @@ main
 MAIN
 *.o
 *.O
+*.txt
+*.TXT
 
 # Documents
 *.pdf
