@@ -1,0 +1,17 @@
+# Build artifacts
+main
+*.o
+
+# Documents
+*.pdf
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tif
+*.tiff
+*.webp
+*.svg
