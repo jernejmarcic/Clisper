@@ -4,13 +4,17 @@
 #include <exiv2/exiv2.hpp>
 
 std::string getMIME(std::string &rawBuff) {
-    magic_t magicCokie = magic_open(MAGIC_MIME_TYPE | MAGIC_ERROR); // Needs it I dont understand why
-    if (magicCokie == NULL) {
-        std::cerr << "Failed to initialize magic cookie" << std::endl;
-        return NULL;
+    magic_t magicCookie = magic_open(MAGIC_MIME_TYPE | MAGIC_ERROR); // init libmagic for MIME output with error reporting
+    if (magicCookie == NULL) {
+        std::cerr << "Failed to initialize magic cookie" << std::endl; // bail if libmagic unavailable
+        return "";
     }
-    std::string mime = magic_buffer(magicCokie, rawBuff.c_str(), rawBuff.size());
-    magic_close(magicCokie);
+    if (magic_load(magicCookie, nullptr) != 0) { // load default magic database
+            magic_close(magicCookie);
+            return "application/octet-stream"; // safe fallback on load failure
+        }
+    std::string mime = magic_buffer(magicCookie, rawBuff.c_str(), rawBuff.size()); // derive MIME from buffer contents
+    magic_close(magicCookie); // release libmagic resources
     return mime;
 }
 
@@ -22,7 +26,7 @@ int main() {
     std::string rawBuff((std::istreambuf_iterator<char>(std::cin)),
                         std::istreambuf_iterator<char>()); // grow to fit all stdin
 
-    std::string mimeType = getMIME(rawBuff);
+    std::string mimeType = getMIME(rawBuff); // detect MIME type of captured input
     std::cout << rawBuff << std::endl;    // stream captured input to stdout
     std::cout << "MIME type: " << mimeType << std::endl;
     std::cout << "Length: " << rawBuff.size() << std::endl;
