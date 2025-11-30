@@ -1,0 +1,22 @@
+@startuml
+title Clipboard Ingest Flow (Minimal)
+
+cloud "wl-paste --watch" as WLP
+node "pyClipScratch\n(processor)" as Proc
+database "MySQL\nentry table" as DB
+rectangle "Client app\n(reads entries)" as Client
+actor User
+
+WLP --> Proc : pipe raw clipboard\n(text or image blob)
+Proc --> DB : insert processed fields\n(text, metadata, blobs)
+User --> Client : request specific entry/table
+Client --> DB : SELECT rows
+DB --> Client : result set
+
+note right of Proc
+  Detect MIME, branch to text or image path,
+  decode text or extract EXIF/OCR for images,
+  then persist all fields (NULLs allowed).
+end note
+
+@enduml
