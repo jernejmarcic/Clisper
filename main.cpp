@@ -1,7 +1,9 @@
 #include <iostream>
 #include <magic.h>
 #include <optional>
+#include <ctime>
 #include <sstream>
+#include <langdetectpp/langdetectpp.h>
 #include <string>
 #include <exiv2/exiv2.hpp>
 
@@ -128,6 +130,8 @@ int main() {
 
     std::string rawBuff((std::istreambuf_iterator<char>(std::cin)),
                         std::istreambuf_iterator<char>()); // grow to fit all stdin
+    const auto p1 = std::chrono::system_clock::now();
+    int unixTime = std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count();
 
     std::string mimeType = getMIME(rawBuff); // detect MIME type of captured input
     if (!isImageMime(mimeType)) { // broad check for any image/*
@@ -153,5 +157,6 @@ int main() {
     }
     std::cout << "MIME type: " << mimeType << std::endl;
     std::cout << "Length: " << rawBuff.size() << std::endl;
+    std::cout << "Unix Time: " << unixTime << std::endl;
     return 0;
 }
