@@ -1,11 +1,11 @@
+#include <chrono>
 #include <iostream>
+#include <iterator>
 #include <magic.h>
 #include <optional>
-#include <ctime>
-#include <sstream>
-#include <langdetectpp/langdetectpp.h>
 #include <string>
 #include <exiv2/exiv2.hpp>
+#include <langdetectpp/langdetectpp.h>
 
 enum class imageMime {
     png,
@@ -134,9 +134,15 @@ int main() {
     int unixTime = std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count();
 
     std::string mimeType = getMIME(rawBuff); // detect MIME type of captured input
-    if (!isImageMime(mimeType)) { // broad check for any image/*
+    if (!isImageMime(mimeType)) { // non-image: echo and detect language
         std::cout << rawBuff << std::endl;    // stream captured input to stdout
-    } else if (isImageMime(mimeType)) { // broad check for any image/*
+
+        static auto detector = langdetectpp::Detector::create();
+        if (detector) {
+            auto lang = detector->detect(rawBuff);
+            std::cout << "Language: " << langdetectpp::stringOfLanguage(lang) << std::endl;
+        }
+    } else { // image: dump selected EXIF data
         ImageMetadata meta = extractImageMetadata(mimeType, rawBuff);
         if (meta.description) std::cout << "Description: " << *meta.description << "\n";
         if (meta.make) std::cout << "Make: " << *meta.make << "\n";
