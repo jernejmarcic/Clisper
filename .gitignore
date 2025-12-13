@@ -3,6 +3,8 @@ main
 MAIN
 *.o
 *.O
+bench
+cliphist/
 *.txt
 *.TXT
 

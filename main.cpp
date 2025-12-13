@@ -1,11 +1,11 @@
 #include <chrono>
+#include <exiv2/exiv2.hpp>
 #include <iostream>
 #include <iterator>
+#include <libexttextcat/textcat.h>
 #include <magic.h>
 #include <optional>
 #include <string>
-#include <exiv2/exiv2.hpp>
-#include <langdetectpp/langdetectpp.h>
 
 enum class imageMime {
     png,
@@ -124,6 +124,17 @@ ImageMetadata extractImageMetadata(const std::string& mime, const std::string& r
     return meta;
 }
 
+std::string stripEncodingSuffix(const std::string& rawLangResult) {
+    std::string cleaned = rawLangResult;
+    size_t pos = 0;
+    while ((pos = cleaned.find("--", pos)) != std::string::npos) {
+        size_t end = cleaned.find(']', pos);
+        if (end == std::string::npos) break;
+        cleaned.erase(pos, end - pos); // drop encoding marker up to closing bracket
+    }
+    return cleaned;
+}
+
 int main() {
     std::ios::sync_with_stdio(false); // speed up iostreams by decoupling from stdio
     std::cin.tie(nullptr);            // avoid flushing stdout on each input operation
@@ -137,27 +148,47 @@ int main() {
     if (!isImageMime(mimeType)) { // non-image: echo and detect language
         std::cout << rawBuff << std::endl;    // stream captured input to stdout
 
-        static auto detector = langdetectpp::Detector::create();
+        static const char* textcatConfig = "/usr/share/libexttextcat/fpdb.conf";
+        static const char* textcatPrefix = "/usr/share/libexttextcat/";
+        void* detector = special_textcat_Init(textcatConfig, textcatPrefix);
         if (detector) {
-            auto lang = detector->detect(rawBuff);
-            std::cout << "Language: " << langdetectpp::stringOfLanguage(lang) << std::endl;
+            char* lang = textcat_Classify(detector, rawBuff.c_str(), rawBuff.size());
+            std::string langOut = lang ? std::string(lang) : "UNKNOWN"; // copy before cleanup
+            std::cout << "Language: " << stripEncodingSuffix(langOut) << std::endl;
+            textcat_Done(detector);
+        } else {
+            std::cout << "Language: UNKNOWN (detector init failed)" << std::endl;
         }
     } else { // image: dump selected EXIF data
         ImageMetadata meta = extractImageMetadata(mimeType, rawBuff);
-        if (meta.description) std::cout << "Description: " << *meta.description << "\n";
-        if (meta.make) std::cout << "Make: " << *meta.make << "\n";
-        if (meta.model) std::cout << "Model: " << *meta.model << "\n";
+        if (meta.description) {
+            std::cout << "Description: " << *meta.description << "\n";
+        }
+        if (meta.make) {
+            std::cout << "Make: " << *meta.make << "\n";
+        }
+        if (meta.model) {
+            std::cout << "Model: " << *meta.model << "\n";
+        }
         if (meta.resolutionWidth && meta.resolutionHeight) {
             std::cout << "Resolution: " << *meta.resolutionWidth << "x" << *meta.resolutionHeight << "\n";
         }
-        if (meta.dateTaken) std::cout << "DateTaken: " << *meta.dateTaken << "\n";
+        if (meta.dateTaken) {
+            std::cout << "DateTaken: " << *meta.dateTaken << "\n";
+        }
         if (meta.gpsLat && meta.gpsLon) {
             std::cout << "GPS: ";
-            if (meta.gpsLatRef) std::cout << *meta.gpsLatRef << " ";
+            if (meta.gpsLatRef) {
+                std::cout << *meta.gpsLatRef << " ";
+            }
             std::cout << *meta.gpsLat << ", ";
-            if (meta.gpsLonRef) std::cout << *meta.gpsLonRef << " ";
+            if (meta.gpsLonRef) {
+                std::cout << *meta.gpsLonRef << " ";
+            }
             std::cout << *meta.gpsLon;
-            if (meta.gpsAlt) std::cout << ", Altitude: " << *meta.gpsAlt;
+            if (meta.gpsAlt) {
+                std::cout << ", Altitude: " << *meta.gpsAlt;
+            }
             std::cout << "\n";
         }
     }
