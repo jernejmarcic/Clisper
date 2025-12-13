@@ -6,6 +6,8 @@
 #include <magic.h>
 #include <optional>
 #include <string>
+#include <mysql_driver.h>
+#include <mysql_connection.h>
 
 enum class imageMime {
     png,

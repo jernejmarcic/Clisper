@@ -1,14 +1,23 @@
-# Clipboard History Coursework
+# Clipboard History Coursework (C++)
 
-## Business Rule
-Every clipboard paste becomes one Entry (auto PK) storing MIME type, created-at timestamp, and the raw payload (raw text for text, raw blob for everything else); MIME is captured for every row (PC total, MC 1). Payload participation is total (exactly one of text content or blob content is present, MC 1). Title is auto-generated when possible, else NULL (PC partial, MC 0..1). Text payloads always store the detected language code (e.g., EN); confidence is not stored. Image MIME values trigger best-effort metadata extraction; missing fields stay NULL (PC partial, MC 0..1). Optional fields stay NULL when unavailable. No other entities are modeled; PC/MC outside Entry are not applicable.
+Command-line utility that ingests clipboard payloads from stdin, tags them by MIME type, and emits lightweight metadata. Text payloads get a best-effort language guess; images get selected EXIF/metadata fields when present. This is the ingestion probe for the coursework’s `entry` table.
 
-## Tasks
-- [ ] Define schema for table `entry`
-- [x] Implement image/text detection and format tagging
-- [x] Extract EXIF/metadata for images where available
-- [ ] Track created/updated/accessed timestamps on each entry
-- [ ] Record source application (when known) -- Too hard
-- [ ] Generate charts for usage by MIME, language, recency
-- [ ] Implement cleanup policy with deletion log
-- [ ] Package deliverables per coursework brief (CW.py, CW.pdf, CSVs, CW.zip)
+## What It Does
+- Reads raw stdin into memory.
+- Detects MIME using `libmagic`.
+- If text: echoes the payload, detects language via `libexttextcat`, prints MIME, payload length, and a Unix timestamp.
+- If image: extracts EXIF fields (description, make/model, resolution, date taken, GPS) via `exiv2`, then prints MIME, payload length, and timestamp.
+
+## Build (Arch)
+Prereqs: `g++`, `make`, `pkgconf`, `libmagic`, `exiv2`, `libexttextcat`.
+- Install deps: `sudo pacman -S gcc make pkgconf file exiv2 libexttextcat`
+- Build: `make` (or `make clean && make` to force a rebuild)
+- Output binary: `./main`
+
+The Makefile uses `pkg-config` to pull the include/lib flags and only builds `main.cpp`.
+
+
+Wayland clipboard watcher (requires `wl-clipboard`):
+```
+wl-paste --watch ./main
+```
