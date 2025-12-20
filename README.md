@@ -50,6 +50,7 @@ Maybe I will add precompiled binaries so you don't have to compile it yourself a
 - [] Configurable post-processing
 - [] Image OCR via tesseract
 
+
 - [] Custom GTK app
 
 ### 2.0.0
