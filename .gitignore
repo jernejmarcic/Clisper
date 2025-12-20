@@ -1,0 +1,65 @@
+# Build artifacts
+main
+MAIN
+*.o
+*.O
+bench
+bench.cpp
+dmenuCompatibility.cpp
+cliphist/
+*.txt
+*.TXT
+
+docs
+build
+cliphist
+langdetectcpp
+
+# Documents
+*.pdf
+*.PDF
+
+# Images
+*.png
+*.PNG
+*.jpg
+*.JPG
+*.jpeg
+*.JPEG
+*.gif
+*.GIF
+*.bmp
+*.BMP
+*.tif
+*.TIF
+*.tiff
+*.TIFF
+*.webp
+*.WEBP
+*.svg
+*.SVG
+# Build artifacts
+/build/
+/*.o
+/*.obj
+/*.a
+/*.so
+/*.dylib
+/*.dll
+/*.exe
+/*.out
+
+# Generated binaries (built in repo root)
+/main
+/bench
+/test
+/dbInit
+/dmenuCompatibility
+
+# Local databases
+/clipser.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
