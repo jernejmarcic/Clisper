@@ -257,8 +257,8 @@ int main(int argc, char** argv) {
         bindTextOrNull(1, title);
         bindTextOrNull(2, isImage ? "" : detectedLanguage);
         bindTextOrNull(3, mimeType);
-        if (!rawBuff.empty()) sqlite3_bind_blob(stmtImg, 4, rawBuff.data(), static_cast<int>(rawBuff.size()), SQLITE_TRANSIENT);
-        else sqlite3_bind_null(stmtImg, 4);
+        const void* entryData = rawBuff.empty() ? "" : rawBuff.data();
+        sqlite3_bind_blob(stmtImg, 4, entryData, static_cast<int>(rawBuff.size()), SQLITE_TRANSIENT);
         std::string imageMetadataJson; // fill if you serialize EXIF; leave empty for NULL
         bindTextOrNull(5, imageMetadataJson);
         sqlite3_bind_int64(stmtImg, 6, unixTime); // or bind_null to keep accessedAt NULL

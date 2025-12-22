@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
         // "source_app TEXT,"
         "language TEXT NULL,"
         "mimeType TEXT NULL,"
-        "entry BLOB NULL,"
+        "entry BLOB NOT NULL UNIQUE,"
         "createdAt INTEGER NOT NULL DEFAULT (strftime('%s','now')),"
         // "imageBlob BLOB,"
         // "image_thumbnail BLOB,"
