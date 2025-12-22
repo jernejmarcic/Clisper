@@ -45,17 +45,17 @@ Maybe I will add precompiled binaries so you don't have to compile it yourself a
 
 ### 1.0.0
 **FULL RELEASE**
-- [] Configurable database
-- [] Configurable metadata extraction 
-- [] Configurable post-processing
-- [] Image OCR via tesseract
+- [ ] Configurable database
+- [ ] Configurable metadata extraction 
+- [ ] Configurable post-processing
+- [ ] Image OCR via tesseract
 
 
-- [] Custom GTK app
+- [ ] Custom GTK app
 
 ### 2.0.0
 
-- [] Custom cross platform copy/paste utility 
+- [ ] Custom cross platform copy/paste utility 
 
 
 ## Versions
