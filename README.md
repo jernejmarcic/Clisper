@@ -41,7 +41,7 @@ make all
 Maybe I will add precompiled binaries so you don't have to compile it yourself and install all the dependancies.
 
 ## Roadmap
-- [] Actually finish making it
+- [ ] Actually finish making it
 
 ### 1.0.0
 **FULL RELEASE**
