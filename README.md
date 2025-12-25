@@ -28,6 +28,13 @@ sudo pacman -S --needed base-devel pkgconf file exiv2 libexttextcat
 sudo pacman -S --needed sqlite
 ```
 
+#### Fedora
+
+```shell
+sudo dnf install gcc-c++ make pkgconfig file-devel exiv2-devel libexttextcat-devel
+sudo dnf install sqlite-devel
+```
+
 ## Build Instructions
 Open a terminal and navigate to the project directory. Then, run the `make all` command.
 Or copy paste the following that will do just that:
