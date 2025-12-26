@@ -1,5 +1,5 @@
 CXX ?= g++
-CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -Wpedantic -pipe
+CXXFLAGS ?= -std=c++23 -O2 -Wall -Wextra -Wpedantic -pipe
 PKG_CONFIG ?= pkg-config
 VERSION ?= 0.5.1
 

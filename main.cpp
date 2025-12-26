@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cstdlib>
 #include <exiv2/exiv2.hpp>
 #include <iostream>
 #include <iterator>
@@ -155,7 +156,9 @@ int main(int argc, char** argv) {
     sqlite3* DB;
     int exit = 0;
     char* messaggeError;
-    exit = sqlite3_open("clipser.db", &DB);
+    const char* homeEnv = std::getenv("HOME");
+    std::string dbPath = std::string(homeEnv ? homeEnv : "") + "/.local/share/clisper/clisper.db";
+    exit = sqlite3_open_v2(dbPath.c_str(), &DB, SQLITE_OPEN_READWRITE, nullptr);
 
     std::string rawBuff((std::istreambuf_iterator<char>(std::cin)),
                         std::istreambuf_iterator<char>()); // grow to fit all stdin
