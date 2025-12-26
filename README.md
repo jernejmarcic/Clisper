@@ -47,6 +47,30 @@ make all
 
 Maybe I will add precompiled binaries so you don't have to compile it yourself and install all the dependancies.
 
+## Running
+You need two separate instances so both text and images are captured.
+
+```shell
+wl-paste --type image --watch /path/to/main
+wl-paste --type text --watch /path/to/main
+```
+
+## Auto-start (Hyprland)
+Add the two commands to your Hyprland config
+
+```ini
+exec-once = wl-paste --type image --watch /path/to/main
+exec-once = wl-paste --type text --watch /path/to/main
+```
+
+## Auto-start (Sway)
+Add the two commands to your Sway config
+
+```ini
+exec wl-paste --type image --watch /path/to/main
+exec wl-paste --type text --watch /path/to/main
+```
+
 ## Roadmap
 - [ ] Actually finish making it
 
