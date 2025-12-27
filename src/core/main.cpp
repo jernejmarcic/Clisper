@@ -46,6 +46,7 @@ bool isImageMime(const std::string& mime) { // broad check for any image/*
 
 struct ImageMetadata {
     std::optional<std::string> description;
+    std::optional<std::string> filename;
     std::optional<std::string> make;
     std::optional<std::string> model;
     std::optional<std::string> resolutionWidth;
@@ -96,6 +97,9 @@ ImageMetadata extractImageMetadata(const std::string& mime, const std::string& r
     std::string description = tagValue("Exif.Image.ImageDescription");
     if (!description.empty()) meta.description = description;
 
+    std::string filename = tagValue("Exif.Image.DocumentName");
+    if (!filename.empty()) meta.filename = filename;
+
     std::string make = tagValue("Exif.Image.Make");
     if (!make.empty()) meta.make = make;
 
@@ -142,6 +146,11 @@ std::string stripEncodingSuffix(const std::string& rawLangResult) {
 }
 
 
+// std::string titleerer() {
+//     std::string title;
+//     return title;
+// }
+
 int main(int argc, char** argv) {
     std::ios::sync_with_stdio(false); // speed up iostreams by decoupling from stdio
     std::cin.tie(nullptr);            // avoid flushing stdout on each input operation
@@ -173,8 +182,11 @@ int main(int argc, char** argv) {
     std::string mimeType = getMIME(rawBuff); // detect MIME type of captured input
 
 
+
     if (!isImageMime(mimeType)) { // non-image: echo and detect language
         std::cout << rawBuff << std::endl;    // stream captured input to stdout
+
+        // title = titleerer();
 
         static const char* textcatConfig = "/usr/share/libexttextcat/fpdb.conf";
         static const char* textcatPrefix = "/usr/share/libexttextcat/";
@@ -192,6 +204,7 @@ int main(int argc, char** argv) {
         }
     } else { // image: dump selected EXIF data
         ImageMetadata meta = extractImageMetadata(mimeType, rawBuff);
+        title = meta.filename.value_or("");
         if (meta.description) {
             std::cout << "Description: " << *meta.description << "\n";
         }

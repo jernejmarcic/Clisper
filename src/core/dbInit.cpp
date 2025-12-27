@@ -55,6 +55,8 @@ int main(int argc, char** argv) {
         // "image_thumbnail BLOB,"
         // "ocr_text TEXT,"
         "imageMetadata TEXT NULL,"
+        "isFavourite BOOLEAN NOT NULL DEFAULT 0,"
+        "tags TEXT NULL,"
         "updatedAt INTEGER NOT NULL DEFAULT (strftime('%s','now')),"
         "accessedAt INTEGER"
         ");";
