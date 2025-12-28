@@ -1,7 +1,7 @@
 CXX ?= g++
 CXXFLAGS ?= -std=c++23 -O2 -Wall -Wextra -Wpedantic -pipe
 PKG_CONFIG ?= pkg-config
-VERSION ?= 0.7.1
+VERSION ?= 0.7.2
 GTK_PKG ?= gtkmm-4.0
 
 MAGIC_CFLAGS := $(shell $(PKG_CONFIG) --cflags libmagic 2>/dev/null)
