@@ -8,6 +8,10 @@
 #include <sqlite3.h>
 #include <optional>
 #include <string>
+#include <tesseract/baseapi.h>
+#include <leptonica/allheaders.h>
+
+
 
 #ifndef APP_VERSION
 #define APP_VERSION "dev"
@@ -70,7 +74,7 @@ std::string getMIME(const std::string &rawBuff) {
         magic_close(magicCookie);
         return "application/octet-stream"; // safe fallback on load failure
     }
-    std::string mime = magic_buffer(magicCookie, rawBuff.c_str(), rawBuff.size()); // derive MIME from buffer contents
+    std::string mime = magic_buffer(magicCookie, rawBuff.data(), rawBuff.size()); // derive MIME from buffer contents
     magic_close(magicCookie); // release libmagic resources
     return mime;
 }
@@ -145,6 +149,34 @@ std::string stripEncodingSuffix(const std::string& rawLangResult) {
     return cleaned;
 }
 
+std::string ocr(const std::string& rawBuff) {
+
+    char *outText;
+
+    tesseract::TessBaseAPI *api = new tesseract::TessBaseAPI();
+    // Initialize tesseract-ocr with English, without specifying tessdata path
+    if (api->Init(NULL, "eng")) {
+        fprintf(stderr, "Could not initialize tesseract.\n");
+        exit(1);
+    }
+
+    // Open input image with leptonica library
+    Pix *image = pixReadMem((const unsigned char*)rawBuff.data(), rawBuff.size());
+    api->SetImage(image);
+    // Get OCR result
+    outText = api->GetUTF8Text();
+    printf("OCR output:\n%s", outText);
+    std::string ocrText = outText;
+
+    // Destroy used object and release memory
+    api->End();
+    delete api;
+    delete [] outText;
+    pixDestroy(&image);
+
+    return ocrText;
+}
+
 
 // std::string titleerer() {
 //     std::string title;
@@ -177,6 +209,7 @@ int main(int argc, char** argv) {
     std::string insertIntoDB;
     std::string detectedLanguage;
     std::string title;
+    std::string ocrText;
 
 
     std::string mimeType = getMIME(rawBuff); // detect MIME type of captured input
@@ -203,6 +236,7 @@ int main(int argc, char** argv) {
             detectedLanguage.append("UNKNOWN");
         }
     } else { // image: dump selected EXIF data
+        ocrText = ocr(rawBuff);
         ImageMetadata meta = extractImageMetadata(mimeType, rawBuff);
         title = meta.filename.value_or("");
         if (meta.description) {
@@ -261,8 +295,8 @@ int main(int argc, char** argv) {
     const bool isImage = isImageMime(mimeType);
     const char* insertSqlImg = R"sql(
         INSERT INTO clisper (
-            title, language, mimeType, entry, imageMetadata, accessedAt
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6);
+            title, language, mimeType, entry, ocrText, imageMetadata, accessedAt
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
     )sql";
     sqlite3_stmt* stmtImg = nullptr;
     if (sqlite3_prepare_v2(DB, insertSqlImg, -1, &stmtImg, nullptr) == SQLITE_OK) {
@@ -276,8 +310,9 @@ int main(int argc, char** argv) {
         const void* entryData = rawBuff.empty() ? "" : rawBuff.data();
         sqlite3_bind_blob(stmtImg, 4, entryData, static_cast<int>(rawBuff.size()), SQLITE_TRANSIENT);
         std::string imageMetadataJson; // fill if you serialize EXIF; leave empty for NULL
-        bindTextOrNull(5, imageMetadataJson);
-        sqlite3_bind_int64(stmtImg, 6, unixTime); // or bind_null to keep accessedAt NULL
+        bindTextOrNull(5, ocrText);
+        bindTextOrNull(6, imageMetadataJson);
+        sqlite3_bind_int64(stmtImg, 7, unixTime); // or bind_null to keep accessedAt NULL
         if (sqlite3_step(stmtImg) != SQLITE_DONE) {
             std::cerr << "Image insert failed: " << sqlite3_errmsg(DB) << std::endl;
         }
