@@ -328,8 +328,7 @@ int main(int argc, char** argv) {
     if (exit != SQLITE_OK) {
            std::cerr << "Error Insert" << std::endl;
            sqlite3_free(messaggeError);
-       } else
-           std::cout << "Records created Successfully!" << std::endl;
+       }
 
 
 
