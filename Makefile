@@ -2,7 +2,7 @@
 CXX ?= g++
 CXXFLAGS ?= -std=c++23 -O2 -Wall -Wextra -Wpedantic -pipe
 PKG_CONFIG ?= pkg-config
-VERSION ?= 0.7.3
+VERSION ?= 0.7.4
 GTK_PKG ?= gtkmm-4.0
 
 # Optional dependency flags (empty if pkg-config is missing)

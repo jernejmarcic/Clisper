@@ -1,7 +1,27 @@
 # Clipser (C++ clipboard history utility)
 
 Clipboard history keeper/scratchpad with language detection for text, image metadata extraction, and OCR.
-This is meant to be a clipboard history keeper/scratchpad.
+This is meant to be a clipboard history keeper and scratchpad.
+
+## Table of Contents
+- [Why I built it](#why-i-built-it)
+- [Dependencies](#dependencies)
+  - [Installing Dependencies](#installing-dependencies)
+    - [Ubuntu/Debian](#ubuntudebian)
+    - [Arch Linux](#arch-linux)
+    - [Fedora](#fedora)
+- [Build Instructions](#build-instructions)
+- [Running](#running)
+- [Auto-start (Hyprland)](#auto-start-hyprland)
+- [Auto-start (Sway)](#auto-start-sway)
+- [Roadmap](#roadmap)
+  - [1.0.0](#100)
+  - [2.0.0](#200)
+- [Versions](#versions)
+
+## Why I built it
+I noticed I was using my clipboard history for more than just keeping clipboard history. I found myself searching through it for some information I frequently had to copy and paste such as email addresses, phone numbers, addresses, and more.
+So I built Clipser to make it easier to access this information.
 
 ## Dependencies
 
