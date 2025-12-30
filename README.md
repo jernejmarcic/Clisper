@@ -113,16 +113,17 @@ exec wl-paste --type text --watch /path/to/main
 ```
 
 ## Roadmap
-- [ ] Actually finish making it
+
+### 0.7
+- [x] DB works
+- [ ] Integration for dmenu compatible interfaces
 
 ### 1.0.0
 **FULL RELEASE**
 - [ ] Configurable database
 - [ ] Configurable metadata extraction 
 - [ ] Configurable post-processing
-- [ ] Image OCR via tesseract
-
-
+- [x] Image OCR via tesseract
 - [ ] Custom GTK app
 
 ### 2.0.0
