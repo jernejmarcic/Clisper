@@ -21,7 +21,7 @@ This is meant to be a clipboard history keeper and scratchpad.
 
 ## Why I built it
 I noticed I was using my clipboard history for more than just keeping clipboard history. I found myself searching through it for some information I frequently had to copy and paste such as email addresses, phone numbers, addresses, and more.
-So I built Clipser to make it easier to access this information.
+So I built Clipser to make it easier to access this information, and while I was at it a few extra features as well.
 
 ## Dependencies
 
