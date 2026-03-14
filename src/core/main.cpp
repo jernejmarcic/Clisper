@@ -226,6 +226,15 @@ int main(int argc, char** argv) {
         static const char* textcatConfig = "/usr/share/libexttextcat/fpdb.conf";
         static const char* textcatPrefix = "/usr/share/libexttextcat/";
         void* detector = special_textcat_Init(textcatConfig, textcatPrefix);
+
+        if (mimeType == "text/plain") {
+            const bool hasHttp = rawBuff.find("http://") != std::string::npos;
+            const bool hasHttps = rawBuff.find("https://") != std::string::npos;
+            if (hasHttp || hasHttps) {
+                mimeType = "text/uri-list";
+            }
+        }
+
         if (detector) {
             char* lang = textcat_Classify(detector, rawBuff.c_str(), rawBuff.size());
             std::string langOut = lang ? std::string(lang) : "UNKNOWN"; // copy before cleanup
