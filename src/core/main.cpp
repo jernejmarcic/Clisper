@@ -1,10 +1,12 @@
 #include <chrono>
 #include <cstdlib>
+#include <cstdio>
 #include <exiv2/exiv2.hpp>
 #include <iostream>
 #include <iterator>
 #include <libexttextcat/textcat.h>
 #include <magic.h>
+#include <print>
 #include <sqlite3.h>
 #include <optional>
 #include <string>
@@ -67,7 +69,7 @@ struct ImageMetadata {
 std::string getMIME(const std::string &rawBuff) {
     magic_t magicCookie = magic_open(MAGIC_MIME_TYPE | MAGIC_ERROR); // init libmagic for MIME output with error reporting
     if (magicCookie == NULL) {
-        std::cerr << "Failed to initialize magic cookie" << std::endl; // bail if libmagic unavailable
+        std::println(stderr, "Failed to initialize magic cookie"); // bail if libmagic unavailable
         return "";
     }
     if (magic_load(magicCookie, nullptr) != 0) { // load default magic database
@@ -190,7 +192,7 @@ int main(int argc, char** argv) {
     if (argc > 1) { // lightweight version flag
         std::string arg1 = argv[1];
         if (arg1 == "--version" || arg1 == "-V" || arg1 == "-v") {
-            std::cout << "Clisper " << APP_VERSION << std::endl;
+            std::println("Clisper {}", APP_VERSION);
             return 0;
         }
     }
@@ -217,7 +219,7 @@ int main(int argc, char** argv) {
 
 
     if (!isImageMime(mimeType)) { // non-image: echo and detect language
-        std::cout << rawBuff << std::endl;    // stream captured input to stdout
+        std::println("{}", rawBuff);    // stream captured input to stdout
 
         // title = titleerer();
 
@@ -227,12 +229,12 @@ int main(int argc, char** argv) {
         if (detector) {
             char* lang = textcat_Classify(detector, rawBuff.c_str(), rawBuff.size());
             std::string langOut = lang ? std::string(lang) : "UNKNOWN"; // copy before cleanup
-            std::cout << "Language: " << stripEncodingSuffix(langOut) << std::endl;
+            std::println("Language: {}", stripEncodingSuffix(langOut));
             detectedLanguage.append(langOut);
 
             textcat_Done(detector);
         } else {
-            std::cout << "Language: UNKNOWN (detector init failed)" << std::endl;
+            std::println("Language: UNKNOWN (detector init failed)");
             detectedLanguage.append("UNKNOWN");
         }
     } else { // image: dump selected EXIF data
@@ -240,39 +242,39 @@ int main(int argc, char** argv) {
         ImageMetadata meta = extractImageMetadata(mimeType, rawBuff);
         title = meta.filename.value_or("");
         if (meta.description) {
-            std::cout << "Description: " << *meta.description << "\n";
+            std::println("Description: {}", *meta.description);
         }
         if (meta.make) {
-            std::cout << "Make: " << *meta.make << "\n";
+            std::println("Make: {}", *meta.make);
         }
         if (meta.model) {
-            std::cout << "Model: " << *meta.model << "\n";
+            std::println("Model: {}", *meta.model);
         }
         if (meta.resolutionWidth && meta.resolutionHeight) {
-            std::cout << "Resolution: " << *meta.resolutionWidth << "x" << *meta.resolutionHeight << "\n";
+            std::println("Resolution: {}x{}", *meta.resolutionWidth, *meta.resolutionHeight);
         }
         if (meta.dateTaken) {
-            std::cout << "DateTaken: " << *meta.dateTaken << "\n";
+            std::println("DateTaken: {}", *meta.dateTaken);
         }
         if (meta.gpsLat && meta.gpsLon) {
-            std::cout << "GPS: ";
+            std::print("GPS: ");
             if (meta.gpsLatRef) {
-                std::cout << *meta.gpsLatRef << " ";
+                std::print("{} ", *meta.gpsLatRef);
             }
-            std::cout << *meta.gpsLat << ", ";
+            std::print("{}, ", *meta.gpsLat);
             if (meta.gpsLonRef) {
-                std::cout << *meta.gpsLonRef << " ";
+                std::print("{} ", *meta.gpsLonRef);
             }
-            std::cout << *meta.gpsLon;
+            std::print("{}", *meta.gpsLon);
             if (meta.gpsAlt) {
-                std::cout << ", Altitude: " << *meta.gpsAlt;
+                std::print(", Altitude: {}", *meta.gpsAlt);
             }
-            std::cout << "\n";
+            std::println("");
         }
     }
-    std::cout << "MIME type: " << mimeType << std::endl;
-    std::cout << "Length: " << rawBuff.size() << std::endl;
-    std::cout << "Unix Time: " << unixTime << std::endl;
+    std::println("MIME type: {}", mimeType);
+    std::println("Length: {}", rawBuff.size());
+    std::println("Unix Time: {}", unixTime);
     // std::cout << "TEXT: " << rawBuff << std::endl;
 
     // insertIntoDB.append("INSERT INTO clisper (title,language,mimeType,entry) VALUES('");
@@ -314,11 +316,11 @@ int main(int argc, char** argv) {
         bindTextOrNull(6, imageMetadataJson);
         sqlite3_bind_int64(stmtImg, 7, unixTime); // or bind_null to keep accessedAt NULL
         if (sqlite3_step(stmtImg) != SQLITE_DONE) {
-            std::cerr << "Image insert failed: " << sqlite3_errmsg(DB) << std::endl;
+            std::println(stderr, "Image insert failed: {}", sqlite3_errmsg(DB));
         }
         sqlite3_finalize(stmtImg);
     } else {
-        std::cerr << "Image prepare failed: " << sqlite3_errmsg(DB) << std::endl;
+        std::println(stderr, "Image prepare failed: {}", sqlite3_errmsg(DB));
     }
 
 
@@ -326,7 +328,7 @@ int main(int argc, char** argv) {
     // std::string query = "SELECT * FROM clisper;";
 
     if (exit != SQLITE_OK) {
-           std::cerr << "Error Insert" << std::endl;
+           std::println(stderr, "Error Insert");
            sqlite3_free(messaggeError);
        }
 
