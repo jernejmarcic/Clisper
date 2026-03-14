@@ -227,13 +227,31 @@ int main(int argc, char** argv) {
         static const char* textcatPrefix = "/usr/share/libexttextcat/";
         void* detector = special_textcat_Init(textcatConfig, textcatPrefix);
 
-        if (mimeType == "text/plain") {
-            const bool hasHttp = rawBuff.find("http://") != std::string::npos;
-            const bool hasHttps = rawBuff.find("https://") != std::string::npos;
-            if (hasHttp || hasHttps) {
-                mimeType = "text/uri-list";
+        auto trimLeftWhitespace = [](std::string_view text) {
+            size_t pos = 0;
+            while (pos < text.size() &&
+                   std::isspace(static_cast<unsigned char>(text[pos]))) {
+                ++pos;
             }
+            return text.substr(pos);
+        };
+
+        //Added URI detection logic fallback if MIME type is not acutomatically detected
+        auto hasUriSchemeAtStart = [&](std::string_view text) {
+            text = trimLeftWhitespace(text);
+            return text.starts_with("http://") ||
+                   text.starts_with("https://") ||
+                   text.starts_with("file://") ||
+                   text.starts_with("ftp://") ||
+                   text.starts_with("mailto:") ||
+                   text.starts_with("ssh://") ||
+                   text.starts_with("smb://");
+        };
+
+        if (mimeType == "text/plain" && hasUriSchemeAtStart(rawBuff)) {
+            mimeType = "text/uri-list";
         }
+
 
         if (detector) {
             char* lang = textcat_Classify(detector, rawBuff.c_str(), rawBuff.size());
