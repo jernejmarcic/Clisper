@@ -1,15 +1,17 @@
 // Initializes the database if not exist
 #include <cstdlib>
+#include <cstdio>
 #include <iostream>
 #include <sqlite3.h>
 #include <filesystem>
+#include <print>
 #include <string>
 
 std::string getDatabasePath() {
     const char* xdgDataHome = std::getenv("XDG_DATA_HOME");
     const char* homeEnv = std::getenv("HOME");
     if (!homeEnv) {
-        std::cerr << "HOW DO YOU NOT HAVE A HOME DIRECTORY?" << std::endl;
+        std::println(stderr, "HOW DO YOU NOT HAVE A HOME DIRECTORY?");
         exit(1);
     }
     std::string home = homeEnv;
@@ -21,7 +23,7 @@ std::string getDatabasePath() {
     std::string xdgDataHomeStr = xdgDataHome ? xdgDataHome : "";
     // std::cout << "XDG_DATA_HOME as string: " << xdgDataHomeStr << std::endl;
     if (xdgDataHomeStr.contains(".local/share/")) {
-        std::cout << "XDG_DATA_HOME contains .local/share/" << std::endl;
+        std::println("XDG_DATA_HOME contains .local/share/");
         return home+"/.local/share/clisper/clisper.db";
     }
     return home+"/.local/share/clisper/clisper.db";
@@ -64,17 +66,17 @@ int main(int argc, char** argv) {
     // std::cout << path << std::endl;
     std::string dbDir = getDatabasePath();
     std::filesystem::create_directories(std::filesystem::path(dbDir).parent_path());
-    std::cout << dbDir << std::endl;
+    std::println("{}", dbDir);
     exit = sqlite3_open(dbDir.c_str(), &DB);
     char* messaggeError;
     exit = sqlite3_exec(DB, sql.c_str(), NULL, 0, &messaggeError);
 
     if (exit) {
-        std::cerr << "Error open DB " << sqlite3_errmsg(DB) << std::endl;
+        std::println(stderr, "Error open DB {}", sqlite3_errmsg(DB));
         return (-1);
     }
     else
-        std::cout << "Opened Database Successfully!" << std::endl;
+        std::println("Opened Database Successfully!");
     sqlite3_close(DB);
     return (0);
 }
