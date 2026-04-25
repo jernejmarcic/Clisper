@@ -6,6 +6,22 @@
 #include <filesystem>
 #include <print>
 #include <string>
+#include <string_view>
+
+namespace {
+
+bool isDebugEnabled = false;
+
+bool hasArgument(int argc, char** argv, std::string_view expectedArg) {
+    for (int index = 1; index < argc; ++index) {
+        if (std::string_view(argv[index]) == expectedArg) {
+            return true;
+        }
+    }
+    return false;
+}
+
+}
 
 std::string getDatabasePath() {
     const char* xdgDataHome = std::getenv("XDG_DATA_HOME");
@@ -23,7 +39,9 @@ std::string getDatabasePath() {
     std::string xdgDataHomeStr = xdgDataHome ? xdgDataHome : "";
     // std::cout << "XDG_DATA_HOME as string: " << xdgDataHomeStr << std::endl;
     if (xdgDataHomeStr.contains(".local/share/")) {
-        std::println("XDG_DATA_HOME contains .local/share/");
+        if (isDebugEnabled) {
+            std::println("XDG_DATA_HOME contains .local/share/");
+        }
         return home+"/.local/share/clisper/clisper.db";
     }
     return home+"/.local/share/clisper/clisper.db";
@@ -31,6 +49,8 @@ std::string getDatabasePath() {
 
 
 int main(int argc, char** argv) {
+    isDebugEnabled = hasArgument(argc, argv, "-d") || hasArgument(argc, argv, "--debug");
+
     sqlite3* DB;
     int exit = 0;
 
@@ -66,7 +86,9 @@ int main(int argc, char** argv) {
     // std::cout << path << std::endl;
     std::string dbDir = getDatabasePath();
     std::filesystem::create_directories(std::filesystem::path(dbDir).parent_path());
-    std::println("{}", dbDir);
+    if (isDebugEnabled) {
+        std::println("{}", dbDir);
+    }
     exit = sqlite3_open(dbDir.c_str(), &DB);
     char* messaggeError;
     exit = sqlite3_exec(DB, sql.c_str(), NULL, 0, &messaggeError);
@@ -75,7 +97,7 @@ int main(int argc, char** argv) {
         std::println(stderr, "Error open DB {}", sqlite3_errmsg(DB));
         return (-1);
     }
-    else
+    else if (isDebugEnabled)
         std::println("Opened Database Successfully!");
     sqlite3_close(DB);
     return (0);

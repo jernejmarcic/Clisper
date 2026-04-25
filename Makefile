@@ -4,6 +4,7 @@ CXXFLAGS ?= -std=c++23 -O2 -Wall -Wextra -Wpedantic -pipe
 PKG_CONFIG ?= pkg-config
 VERSION ?= 0.7.4
 GTK_PKG ?= gtkmm-4.0
+QT_PKG ?= Qt6Core Qt6Gui
 
 # Optional dependency flags (empty if pkg-config is missing)
 MAGIC_CFLAGS := $(shell $(PKG_CONFIG) --cflags libmagic 2>/dev/null)
@@ -20,6 +21,10 @@ SQLITE3_LIBS   := $(shell $(PKG_CONFIG) --libs sqlite3 2>/dev/null)
 SQLITE3_CFLAGS := $(shell $(PKG_CONFIG) --cflags sqlite3 2>/dev/null)
 GTK_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(GTK_PKG) 2>/dev/null)
 GTK_LIBS := $(shell $(PKG_CONFIG) --libs $(GTK_PKG) 2>/dev/null)
+QT_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(QT_PKG) 2>/dev/null)
+QT_LIBS := $(shell $(PKG_CONFIG) --libs $(QT_PKG) 2>/dev/null)
+RAYLIB_CFLAGS := $(shell $(PKG_CONFIG) --cflags raylib 2>/dev/null)
+RAYLIB_LIBS := $(shell $(PKG_CONFIG) --libs raylib 2>/dev/null)
 # Fallback for sqlite3 when pkg-config is unavailable
 ifeq ($(strip $(SQLITE3_LIBS)),)
 SQLITE3_LIBS := -lsqlite3
@@ -35,13 +40,16 @@ BINARY := $(BUILD_DIR)/main
 DMENU_BIN := $(BUILD_DIR)/dmenuCompatibility
 DBINIT_BIN := $(BUILD_DIR)/dbInit
 GTK_BIN := $(BUILD_DIR)/clisperGTK
+PLASMA_BIN := $(BUILD_DIR)/plasmaClipboardWatcher
+RAYLIB_BIN := rayLibMenu
+RAYLIB_IMAGE_EDIT_BIN := rayLibMenuImageEdit
 
 # Core sources
 MAIN_SRC := src/core/main.cpp
 MAIN_OBJ := $(BUILD_DIR)/core/main.o
 
 # Standard targets
-.PHONY: all clean database
+.PHONY: all clean database gtk plasma raylib raylib-image-edit
 
 all: $(BINARY) $(DMENU_BIN)
 
@@ -72,6 +80,24 @@ $(GTK_BIN): src/gui/main.cpp src/gui/clisperGTK.cpp
 # Convenience alias for GTK build
 gtk: $(GTK_BIN)
 
+# Plasma clipboard watcher build
+$(PLASMA_BIN): src/platform/plasmaClipboardWatcher.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -fPIC $(QT_CFLAGS) $< -o $@ $(QT_LIBS)
+
+plasma: $(PLASMA_BIN)
+
+# Raylib UI build
+$(RAYLIB_BIN): src/compat/rayLibMenu.cpp
+	$(CXX) $(CXXFLAGS) $(RAYLIB_CFLAGS) $< -o $@ $(RAYLIB_LIBS) $(SQLITE3_LIBS)
+
+raylib: $(RAYLIB_BIN)
+
+$(RAYLIB_IMAGE_EDIT_BIN): src/compat/rayLibMenuImageEdit.cpp
+	$(CXX) $(CXXFLAGS) $(RAYLIB_CFLAGS) $< -o $@ $(RAYLIB_LIBS) $(SQLITE3_LIBS)
+
+raylib-image-edit: $(RAYLIB_IMAGE_EDIT_BIN)
+
 
 # Basic smoke test via stdin
 test: $(BINARY)
@@ -80,6 +106,7 @@ test: $(BINARY)
 
 # Cleans
 clean:
+	$(RM) $(RAYLIB_BIN) $(RAYLIB_IMAGE_EDIT_BIN)
 	$(RM) -r $(BUILD_DIR)
 
 

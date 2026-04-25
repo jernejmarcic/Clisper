@@ -10,6 +10,7 @@
 #include <sqlite3.h>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <tesseract/baseapi.h>
 #include <leptonica/allheaders.h>
 
@@ -18,6 +19,21 @@
 #ifndef APP_VERSION
 #define APP_VERSION "dev"
 #endif
+
+namespace {
+
+bool isDebugEnabled = false;
+
+bool hasArgument(int argc, char** argv, std::string_view expectedArg) {
+    for (int index = 1; index < argc; ++index) {
+        if (std::string_view(argv[index]) == expectedArg) {
+            return true;
+        }
+    }
+    return false;
+}
+
+}
 
 enum class imageMime {
     png,
@@ -167,7 +183,9 @@ std::string ocr(const std::string& rawBuff) {
     api->SetImage(image);
     // Get OCR result
     outText = api->GetUTF8Text();
-    printf("OCR output:\n%s", outText);
+    if (isDebugEnabled) {
+        std::print("OCR output:\n{}", outText);
+    }
     std::string ocrText = outText;
 
     // Destroy used object and release memory
@@ -189,12 +207,13 @@ int main(int argc, char** argv) {
     std::ios::sync_with_stdio(false); // speed up iostreams by decoupling from stdio
     std::cin.tie(nullptr);            // avoid flushing stdout on each input operation
 
-    if (argc > 1) { // lightweight version flag
-        std::string arg1 = argv[1];
-        if (arg1 == "--version" || arg1 == "-V" || arg1 == "-v") {
-            std::println("Clisper {}", APP_VERSION);
-            return 0;
-        }
+    isDebugEnabled = hasArgument(argc, argv, "-d") || hasArgument(argc, argv, "--debug");
+
+    if (hasArgument(argc, argv, "--version") ||
+        hasArgument(argc, argv, "-V") ||
+        hasArgument(argc, argv, "-v")) {
+        std::println("Clisper {}", APP_VERSION);
+        return 0;
     }
     sqlite3* DB;
     int exit = 0;
@@ -219,7 +238,9 @@ int main(int argc, char** argv) {
 
 
     if (!isImageMime(mimeType)) { // non-image: echo and detect language
-        std::println("{}", rawBuff);    // stream captured input to stdout
+        if (isDebugEnabled) {
+            std::println("{}", rawBuff);
+        }
 
         // title = titleerer();
 
@@ -256,34 +277,38 @@ int main(int argc, char** argv) {
         if (detector) {
             char* lang = textcat_Classify(detector, rawBuff.c_str(), rawBuff.size());
             std::string langOut = lang ? std::string(lang) : "UNKNOWN"; // copy before cleanup
-            std::println("Language: {}", stripEncodingSuffix(langOut));
+            if (isDebugEnabled) {
+                std::println("Language: {}", stripEncodingSuffix(langOut));
+            }
             detectedLanguage.append(langOut);
 
             textcat_Done(detector);
         } else {
-            std::println("Language: UNKNOWN (detector init failed)");
+            if (isDebugEnabled) {
+                std::println("Language: UNKNOWN (detector init failed)");
+            }
             detectedLanguage.append("UNKNOWN");
         }
     } else { // image: dump selected EXIF data
         ocrText = ocr(rawBuff);
         ImageMetadata meta = extractImageMetadata(mimeType, rawBuff);
         title = meta.filename.value_or("");
-        if (meta.description) {
+        if (isDebugEnabled && meta.description) {
             std::println("Description: {}", *meta.description);
         }
-        if (meta.make) {
+        if (isDebugEnabled && meta.make) {
             std::println("Make: {}", *meta.make);
         }
-        if (meta.model) {
+        if (isDebugEnabled && meta.model) {
             std::println("Model: {}", *meta.model);
         }
-        if (meta.resolutionWidth && meta.resolutionHeight) {
+        if (isDebugEnabled && meta.resolutionWidth && meta.resolutionHeight) {
             std::println("Resolution: {}x{}", *meta.resolutionWidth, *meta.resolutionHeight);
         }
-        if (meta.dateTaken) {
+        if (isDebugEnabled && meta.dateTaken) {
             std::println("DateTaken: {}", *meta.dateTaken);
         }
-        if (meta.gpsLat && meta.gpsLon) {
+        if (isDebugEnabled && meta.gpsLat && meta.gpsLon) {
             std::print("GPS: ");
             if (meta.gpsLatRef) {
                 std::print("{} ", *meta.gpsLatRef);
@@ -299,9 +324,11 @@ int main(int argc, char** argv) {
             std::println("");
         }
     }
-    std::println("MIME type: {}", mimeType);
-    std::println("Length: {}", rawBuff.size());
-    std::println("Unix Time: {}", unixTime);
+    if (isDebugEnabled) {
+        std::println("MIME type: {}", mimeType);
+        std::println("Length: {}", rawBuff.size());
+        std::println("Unix Time: {}", unixTime);
+    }
     // std::cout << "TEXT: " << rawBuff << std::endl;
 
     // insertIntoDB.append("INSERT INTO clisper (title,language,mimeType,entry) VALUES('");
