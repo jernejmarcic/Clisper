@@ -46,7 +46,10 @@ RAYLIB_IMAGE_EDIT_BIN := rayLibMenuImageEdit
 
 # Core sources
 MAIN_SRC := src/core/main.cpp
+TEXT_MIME_REFINEMENT_SRC := src/core/textMIMErefinement.cpp
 MAIN_OBJ := $(BUILD_DIR)/core/main.o
+TEXT_MIME_REFINEMENT_OBJ := $(BUILD_DIR)/core/textMIMErefinement.o
+CORE_OBJS := $(MAIN_OBJ) $(TEXT_MIME_REFINEMENT_OBJ)
 
 # Standard targets
 .PHONY: all clean database gtk plasma raylib raylib-image-edit
@@ -54,11 +57,15 @@ MAIN_OBJ := $(BUILD_DIR)/core/main.o
 all: $(BINARY) $(DMENU_BIN)
 
 # Core CLI build
-$(BINARY): $(MAIN_OBJ)
+$(BINARY): $(CORE_OBJS)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-$(BUILD_DIR)/core/main.o: $(MAIN_SRC)
+$(MAIN_OBJ): src/core/textMIMErefinement.h
+
+$(TEXT_MIME_REFINEMENT_OBJ): src/core/textMIMErefinement.h
+
+$(BUILD_DIR)/core/%.o: src/core/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@
 
