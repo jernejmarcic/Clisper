@@ -1,22 +1,24 @@
 #include <chrono>
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 #include <exiv2/exiv2.hpp>
 #include <iostream>
 #include <iterator>
+#include <leptonica/allheaders.h>
 #include <libexttextcat/textcat.h>
 #include <magic.h>
+#include <optional>
 #include <print>
 #include <sqlite3.h>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <tesseract/baseapi.h>
-#include <leptonica/allheaders.h>
 
+#include <sqlpp23/sqlite3/sqlite3.h>
+#include <sqlpp23/sqlpp23.h>
+
+#include "Schema.h"
 #include "textMIMErefinement.h"
-
-
 
 #ifndef APP_VERSION
 #define APP_VERSION "dev"
@@ -26,7 +28,7 @@ namespace {
 
 bool isDebugEnabled = false;
 
-bool hasArgument(int argc, char** argv, std::string_view expectedArg) {
+bool hasArgument(int argc, char **argv, std::string_view expectedArg) {
     for (int index = 1; index < argc; ++index) {
         if (std::string_view(argv[index]) == expectedArg) {
             return true;
@@ -35,36 +37,35 @@ bool hasArgument(int argc, char** argv, std::string_view expectedArg) {
     return false;
 }
 
-}
+} // namespace
 
-enum class imageMime {
-    png,
-    jpeg,
-    jpg,
-    gif,
-    bmp,
-    tiff,
-    webp,
-    svg,
-    ico,
-    unknown
-};
+enum class imageMime { png, jpeg, jpg, gif, bmp, tiff, webp, svg, ico, unknown };
 
-inline imageMime imageMimeFromString(const std::string& mime) {
-    if (mime == "image/png") return imageMime::png;
-    if (mime == "image/jpeg") return imageMime::jpeg;
-    if (mime == "image/jpg") return imageMime::jpg;
-    if (mime == "image/gif") return imageMime::gif;
-    if (mime == "image/bmp") return imageMime::bmp;
-    if (mime == "image/tiff") return imageMime::tiff;
-    if (mime == "image/webp") return imageMime::webp;
-    if (mime == "image/svg+xml") return imageMime::svg;
-    if (mime == "image/x-icon" || mime == "image/vnd.microsoft.icon") return imageMime::ico;
-    if (mime.rfind("image/", 0) == 0) return imageMime::unknown; // treat other image/* as image
+inline imageMime imageMimeFromString(const std::string &mime) {
+    if (mime == "image/png")
+        return imageMime::png;
+    if (mime == "image/jpeg")
+        return imageMime::jpeg;
+    if (mime == "image/jpg")
+        return imageMime::jpg;
+    if (mime == "image/gif")
+        return imageMime::gif;
+    if (mime == "image/bmp")
+        return imageMime::bmp;
+    if (mime == "image/tiff")
+        return imageMime::tiff;
+    if (mime == "image/webp")
+        return imageMime::webp;
+    if (mime == "image/svg+xml")
+        return imageMime::svg;
+    if (mime == "image/x-icon" || mime == "image/vnd.microsoft.icon")
+        return imageMime::ico;
+    if (mime.rfind("image/", 0) == 0)
+        return imageMime::unknown; // treat other image/* as image
     return imageMime::unknown;
 }
 
-bool isImageMime(const std::string& mime) { // broad check for any image/*
+bool isImageMIME(const std::string &mime) { // broad check for any image/*
     return mime.rfind("image/", 0) == 0;
 }
 
@@ -83,93 +84,111 @@ struct ImageMetadata {
     std::optional<std::string> gpsAlt;
 };
 
-
 std::string getMIME(const std::string &rawBuff) {
-    magic_t magicCookie = magic_open(MAGIC_MIME_TYPE | MAGIC_ERROR); // init libmagic for MIME output with error reporting
+    magic_t magicCookie =
+        magic_open(MAGIC_MIME_TYPE | MAGIC_ERROR); // init libmagic for MIME output with error reporting
     if (magicCookie == NULL) {
-        std::println(stderr, "Failed to initialize magic cookie"); // bail if libmagic unavailable
+        std::println(stderr,
+                     "Failed to initialize magic cookie"); // bail if libmagic unavailable
         return "";
     }
     if (magic_load(magicCookie, nullptr) != 0) { // load default magic database
         magic_close(magicCookie);
         return "application/octet-stream"; // safe fallback on load failure
     }
-    std::string mime = magic_buffer(magicCookie, rawBuff.data(), rawBuff.size()); // derive MIME from buffer contents
-    magic_close(magicCookie); // release libmagic resources
+    std::string mime = magic_buffer(magicCookie, rawBuff.data(),
+                                    rawBuff.size()); // derive MIME from buffer contents
+    magic_close(magicCookie);                        // release libmagic resources
     return mime;
 }
 
-ImageMetadata extractImageMetadata(const std::string& mime, const std::string& rawBuff) {
+ImageMetadata extractImageMetadata(const std::string &mime, const std::string &rawBuff) {
     ImageMetadata meta;
-    if (!isImageMime(mime)) {
+    if (!isImageMIME(mime)) {
         return meta;
     }
-    Exiv2::Image::UniquePtr image = Exiv2::ImageFactory::open(reinterpret_cast<const Exiv2::byte*>(rawBuff.data()),
-                                                             rawBuff.size()); // open from in-memory buffer
+    Exiv2::Image::UniquePtr image = Exiv2::ImageFactory::open(reinterpret_cast<const Exiv2::byte *>(rawBuff.data()),
+                                                              rawBuff.size()); // open from in-memory buffer
     if (!image) {
         return meta;
     }
     image->readMetadata(); // Loads image var into readMetadata
-    Exiv2::ExifData& exifData = image->exifData();
+    Exiv2::ExifData &exifData = image->exifData();
 
-    auto tagValue = [&exifData](const char* key) -> std::string {
+    auto tagValue = [&exifData](const char *key) -> std::string {
         Exiv2::ExifData::const_iterator it = exifData.findKey(Exiv2::ExifKey(key));
-        if (it == exifData.end()) return "";
+        if (it == exifData.end())
+            return "";
         return it->value().toString();
     };
 
     std::string description = tagValue("Exif.Image.ImageDescription");
-    if (!description.empty()) meta.description = description;
+    if (!description.empty())
+        meta.description = description;
 
     std::string filename = tagValue("Exif.Image.DocumentName");
-    if (!filename.empty()) meta.filename = filename;
+    if (!filename.empty())
+        meta.filename = filename;
 
     std::string make = tagValue("Exif.Image.Make");
-    if (!make.empty()) meta.make = make;
+    if (!make.empty())
+        meta.make = make;
 
     std::string model = tagValue("Exif.Image.Model");
-    if (!model.empty()) meta.model = model;
+    if (!model.empty())
+        meta.model = model;
 
-    // Resolution: prefer PixelX/YDimension if present, fallback to ImageWidth/ImageLength
-    std::string width = tagValue("Exif.Photo.PixelXDimension");
+    // Resolution: prefer PixelX/YDimension if present, fallback to
+    // ImageWidth/ImageLength
+    std::string width  = tagValue("Exif.Photo.PixelXDimension");
     std::string height = tagValue("Exif.Photo.PixelYDimension");
     if (width.empty() || height.empty()) {
-        width = tagValue("Exif.Image.ImageWidth");
+        width  = tagValue("Exif.Image.ImageWidth");
         height = tagValue("Exif.Image.ImageLength");
     }
-    if (!width.empty()) meta.resolutionWidth = width;
-    if (!height.empty()) meta.resolutionHeight = height;
+    if (!width.empty())
+        meta.resolutionWidth = width;
+    if (!height.empty())
+        meta.resolutionHeight = height;
 
     std::string dateTaken = tagValue("Exif.Photo.DateTimeOriginal");
-    if (dateTaken.empty()) dateTaken = tagValue("Exif.Image.DateTime");
-    if (!dateTaken.empty()) meta.dateTaken = dateTaken;
+    if (dateTaken.empty())
+        dateTaken = tagValue("Exif.Image.DateTime");
+    if (!dateTaken.empty())
+        meta.dateTaken = dateTaken;
 
     std::string latRef = tagValue("Exif.GPSInfo.GPSLatitudeRef");
-    std::string lat = tagValue("Exif.GPSInfo.GPSLatitude");
+    std::string lat    = tagValue("Exif.GPSInfo.GPSLatitude");
     std::string lonRef = tagValue("Exif.GPSInfo.GPSLongitudeRef");
-    std::string lon = tagValue("Exif.GPSInfo.GPSLongitude");
-    std::string alt = tagValue("Exif.GPSInfo.GPSAltitude");
-    if (!latRef.empty()) meta.gpsLatRef = latRef;
-    if (!lat.empty()) meta.gpsLat = lat;
-    if (!lonRef.empty()) meta.gpsLonRef = lonRef;
-    if (!lon.empty()) meta.gpsLon = lon;
-    if (!alt.empty()) meta.gpsAlt = alt;
+    std::string lon    = tagValue("Exif.GPSInfo.GPSLongitude");
+    std::string alt    = tagValue("Exif.GPSInfo.GPSAltitude");
+    if (!latRef.empty())
+        meta.gpsLatRef = latRef;
+    if (!lat.empty())
+        meta.gpsLat = lat;
+    if (!lonRef.empty())
+        meta.gpsLonRef = lonRef;
+    if (!lon.empty())
+        meta.gpsLon = lon;
+    if (!alt.empty())
+        meta.gpsAlt = alt;
 
     return meta;
 }
 
-std::string stripEncodingSuffix(const std::string& rawLangResult) {
+std::string stripEncodingSuffix(const std::string &rawLangResult) {
     std::string cleaned = rawLangResult;
-    size_t pos = 0;
+    size_t      pos     = 0;
     while ((pos = cleaned.find("--", pos)) != std::string::npos) {
         size_t end = cleaned.find(']', pos);
-        if (end == std::string::npos) break;
+        if (end == std::string::npos)
+            break;
         cleaned.erase(pos, end - pos); // drop encoding marker up to closing bracket
     }
     return cleaned;
 }
 
-std::string ocr(const std::string& rawBuff) {
+std::string ocr(const std::string &rawBuff) {
 
     char *outText;
 
@@ -181,7 +200,7 @@ std::string ocr(const std::string& rawBuff) {
     }
 
     // Open input image with leptonica library
-    Pix *image = pixReadMem((const unsigned char*)rawBuff.data(), rawBuff.size());
+    Pix *image = pixReadMem((const unsigned char *)rawBuff.data(), rawBuff.size());
     api->SetImage(image);
     // Get OCR result
     outText = api->GetUTF8Text();
@@ -193,68 +212,78 @@ std::string ocr(const std::string& rawBuff) {
     // Destroy used object and release memory
     api->End();
     delete api;
-    delete [] outText;
+    delete[] outText;
     pixDestroy(&image);
 
     return ocrText;
 }
-
 
 // std::string titleerer() {
 //     std::string title;
 //     return title;
 // }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     std::ios::sync_with_stdio(false); // speed up iostreams by decoupling from stdio
     std::cin.tie(nullptr);            // avoid flushing stdout on each input operation
 
     isDebugEnabled = hasArgument(argc, argv, "-d") || hasArgument(argc, argv, "--debug");
 
-    if (hasArgument(argc, argv, "--version") ||
-        hasArgument(argc, argv, "-V") ||
-        hasArgument(argc, argv, "-v")) {
+    if (hasArgument(argc, argv, "--version") || hasArgument(argc, argv, "-V") || hasArgument(argc, argv, "-v")) {
         std::println("Clisper {}", APP_VERSION);
         return 0;
     }
-    sqlite3* DB;
-    int exit = 0;
-    char* messaggeError;
-    const char* homeEnv = std::getenv("HOME");
-    std::string dbPath = std::string(homeEnv ? homeEnv : "") + "/.local/share/clisper/clisper.db";
-    exit = sqlite3_open_v2(dbPath.c_str(), &DB, SQLITE_OPEN_READWRITE, nullptr);
+    const char *homeEnv = std::getenv("HOME");
+    std::string dbPath  = std::string(homeEnv ? homeEnv : "") + "/.local/share/clisper/clisper.db";
+
+    // sqlpp23 connection. Schema table handle available as `clisperTbl` below.
+    auto dbCfg = std::make_shared<sqlpp::sqlite3::connection_config>();
+    dbCfg->path_to_database = dbPath;
+    dbCfg->flags            = SQLITE_OPEN_READWRITE;
+    sqlpp::sqlite3::connection db;
+    try {
+        db.connect_using(dbCfg);
+    } catch (const sqlpp::exception &e) {
+        std::println(stderr, "Open DB failed: {}", e.what());
+        return 1;
+    }
+    static constexpr clisper::schema::Clisper clisper;
+    (void)clisper; // silence unused until insert/select wired
+
+    // Legacy raw sqlite3 path retained until sqlpp23 insert is wired.
+    // sqlite3 *DB = nullptr;
+    // int exit = 0;
+    // char *messaggeError = nullptr;
+    // exit = sqlite3_open_v2(dbPath.c_str(), &DB, SQLITE_OPEN_READWRITE,
+    // nullptr);
 
     std::string rawBuff((std::istreambuf_iterator<char>(std::cin)),
                         std::istreambuf_iterator<char>()); // grow to fit all stdin
-    const auto p1 = std::chrono::system_clock::now();
-    int unixTime = std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count();
+    const auto  p1       = std::chrono::system_clock::now();
+    int         unixTime = std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count();
 
     std::string insertIntoDB;
     std::string detectedLanguage;
     std::string title;
     std::string ocrText;
 
-
     std::string mimeType = getMIME(rawBuff); // detect MIME type of captured input
 
-
-
-    if (!isImageMime(mimeType)) { // non-image: echo and detect language
+    if (!isImageMIME(mimeType)) { // non-image: echo and detect language
         if (isDebugEnabled) {
             std::println("{}", rawBuff);
         }
 
         // title = titleerer();
 
-        static const char* textcatConfig = "/usr/share/libexttextcat/fpdb.conf";
-        static const char* textcatPrefix = "/usr/share/libexttextcat/";
-        void* detector = special_textcat_Init(textcatConfig, textcatPrefix);
+        static const char *textcatConfig = "/usr/share/libexttextcat/fpdb.conf";
+        static const char *textcatPrefix = "/usr/share/libexttextcat/";
+        void              *detector      = special_textcat_Init(textcatConfig, textcatPrefix);
 
         mimeType = refineTextMIME(rawBuff, mimeType);
 
-
         if (detector) {
-            char* lang = textcat_Classify(detector, rawBuff.c_str(), rawBuff.size());
+            char       *lang    = textcat_Classify(detector, rawBuff.c_str(), rawBuff.size());
             std::string langOut = lang ? std::string(lang) : "UNKNOWN"; // copy before cleanup
             if (isDebugEnabled) {
                 std::println("Language: {}", stripEncodingSuffix(langOut));
@@ -269,9 +298,9 @@ int main(int argc, char** argv) {
             detectedLanguage.append("UNKNOWN");
         }
     } else { // image: dump selected EXIF data
-        ocrText = ocr(rawBuff);
+        ocrText            = ocr(rawBuff);
         ImageMetadata meta = extractImageMetadata(mimeType, rawBuff);
-        title = meta.filename.value_or("");
+        title              = meta.filename.value_or("");
         if (isDebugEnabled && meta.description) {
             std::println("Description: {}", *meta.description);
         }
@@ -310,65 +339,84 @@ int main(int argc, char** argv) {
     }
     // std::cout << "TEXT: " << rawBuff << std::endl;
 
-    // insertIntoDB.append("INSERT INTO clisper (title,language,mimeType,entry) VALUES('");
-    // insertIntoDB.append("title");
-    // insertIntoDB.append("','");
+    // insertIntoDB.append("INSERT INTO clisper (title,language,mimeType,entry)
+    // VALUES('"); insertIntoDB.append("title"); insertIntoDB.append("','");
     // insertIntoDB.append(detectedLanguage);
     // insertIntoDB.append("','");
     // insertIntoDB.append(mimeType);
     // insertIntoDB.append("','");
     // insertIntoDB.append(rawBuff);
 
-
     // insertIntoDB.append("');");
 
     // std::cout << insertIntoDB << std::endl;
     // exit = sqlite3_exec(DB, insertIntoDB.c_str(), NULL, 0, &messaggeError);
 
+    // === Legacy raw-sqlite3 insert path (commented out for sqlpp23 migration)
+    // === const bool isImage = isImageMIME(mimeType); const char *insertSqlImg =
+    // R"sql(
+    //       INSERT INTO clisper (
+    //           title, language, mimeType, entry, ocrText, imageMetadata,
+    //           accessedAt
+    //       ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
+    //   )sql";
+    // sqlite3_stmt *stmtImg = nullptr;
+    // if (sqlite3_prepare_v2(DB, insertSqlImg, -1, &stmtImg, nullptr) ==
+    //     SQLITE_OK) {
+    //   auto bindTextOrNull = [&](int idx, const std::string &val) {
+    //     if (val.empty())
+    //       sqlite3_bind_null(stmtImg, idx);
+    //     else
+    //       sqlite3_bind_text(stmtImg, idx, val.c_str(), -1, SQLITE_TRANSIENT);
+    //   };
+    //   bindTextOrNull(1, title);
+    //   bindTextOrNull(2, isImage ? "" : detectedLanguage);
+    //   bindTextOrNull(3, mimeType);
+    //   const void *entryData = rawBuff.empty() ? "" : rawBuff.data();
+    //   sqlite3_bind_blob(stmtImg, 4, entryData,
+    //   static_cast<int>(rawBuff.size()),
+    //                     SQLITE_TRANSIENT);
+    //   std::string imageMetadataJson;
+    //   bindTextOrNull(5, ocrText);
+    //   bindTextOrNull(6, imageMetadataJson);
+    //   sqlite3_bind_int64(stmtImg, 7, unixTime);
+    //   if (sqlite3_step(stmtImg) != SQLITE_DONE) {
+    //     std::println(stderr, "Image insert failed: {}", sqlite3_errmsg(DB));
+    //   }
+    //   sqlite3_finalize(stmtImg);
+    // } else {
+    //   std::println(stderr, "Image prepare failed: {}", sqlite3_errmsg(DB));
+    // }
 
+    // std::string sql;
+    // if (exit != SQLITE_OK) {
+    //   std::println(stderr, "Error Insert");
+    //   sqlite3_free(messaggeError);
+    // }
 
-    const bool isImage = isImageMime(mimeType);
-    const char* insertSqlImg = R"sql(
-        INSERT INTO clisper (
-            title, language, mimeType, entry, ocrText, imageMetadata, accessedAt
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
-    )sql";
-    sqlite3_stmt* stmtImg = nullptr;
-    if (sqlite3_prepare_v2(DB, insertSqlImg, -1, &stmtImg, nullptr) == SQLITE_OK) {
-        auto bindTextOrNull = [&](int idx, const std::string& val) {
-            if (val.empty()) sqlite3_bind_null(stmtImg, idx);
-            else sqlite3_bind_text(stmtImg, idx, val.c_str(), -1, SQLITE_TRANSIENT);
-        };
-        bindTextOrNull(1, title);
-        bindTextOrNull(2, isImage ? "" : detectedLanguage);
-        bindTextOrNull(3, mimeType);
-        const void* entryData = rawBuff.empty() ? "" : rawBuff.data();
-        sqlite3_bind_blob(stmtImg, 4, entryData, static_cast<int>(rawBuff.size()), SQLITE_TRANSIENT);
-        std::string imageMetadataJson; // fill if you serialize EXIF; leave empty for NULL
-        bindTextOrNull(5, ocrText);
-        bindTextOrNull(6, imageMetadataJson);
-        sqlite3_bind_int64(stmtImg, 7, unixTime); // or bind_null to keep accessedAt NULL
-        if (sqlite3_step(stmtImg) != SQLITE_DONE) {
-            std::println(stderr, "Image insert failed: {}", sqlite3_errmsg(DB));
-        }
-        sqlite3_finalize(stmtImg);
-    } else {
-        std::println(stderr, "Image prepare failed: {}", sqlite3_errmsg(DB));
+    std::vector<std::uint8_t> entryBlob(rawBuff.begin(), rawBuff.end());
+
+    auto toOpt = [](const std::string &s) -> std::optional<std::string> {
+        if (s.empty())
+            return std::nullopt;
+        return s;
+    };
+
+    try {
+        db(sqlpp::insert_into(clisper).set(clisper.title    = toOpt(title),
+                                           clisper.language = toOpt(isImageMIME(mimeType) ? "" : detectedLanguage),
+                                           clisper.mimeType = toOpt(mimeType), clisper.entry = entryBlob,
+
+                                           clisper.ocrText = toOpt(ocrText), clisper.accessedAt = unixTime));
+    } catch (const sqlpp::exception &e) {
+        if (isDebugEnabled)
+            std::println(stderr, "Insert failed: {}", e.what());
+        // UNIQUE(entry) collision = expected on re-paste; swallow silently in prod
     }
 
-
-    std::string sql;
-    // std::string query = "SELECT * FROM clisper;";
-
-    if (exit != SQLITE_OK) {
-           std::println(stderr, "Error Insert");
-           sqlite3_free(messaggeError);
-       }
-
-
-
-
-    sqlite3_close(DB);
+    // sqlite3_close(DB);
+    // (void)exit;
+    // (void)messaggeError;
 
     return 0;
 }
